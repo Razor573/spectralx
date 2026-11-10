@@ -65,6 +65,8 @@
           id="skyDisplay" 
           class="sky-fullbleed-img" 
           src="assets/images/cluster-survey-cyan.jpg" 
+          srcset="assets/images/cluster-survey-cyan-hires.jpg 2048w, assets/images/cluster-survey-cyan.jpg 1024w"
+          sizes="100vw"
           alt="SPHEREx multi-epoch sky observation field"
         >
 
@@ -152,6 +154,7 @@
                 <option value="milkyway_allsky">Milky Way All-Sky Survey (2 Bands: Stars vs Dust)</option>
                 <option value="molecular_filaments">Herschel Molecular Cloud Filaments (1 Epoch)</option>
                 <option value="spherex_mosaic">SPHEREx 6-Channel Detector Focal Plane Array</option>
+                <option value="cygnus_complex">Cygnus Molecular Cloud Complex (2 Bands)</option>
               </select>
             </div>
 
@@ -432,6 +435,32 @@
               <span class="card-action">Load in Viewer &rarr;</span>
             </div>
           </article>
+
+          <!-- Card 14 -->
+          <article class="gallery-card" data-target="cygnus_complex" data-epoch="0" data-band="2" tabindex="0" role="button" aria-label="Load SPHEREx Observatory Maps Stars and Dust in Cygnus in viewer">
+            <div class="card-media">
+              <img src="assets/images/cygnus-stars-dust-44.jpg" alt="SPHEREx Observatory infrared survey mapping stellar populations and warm dust in Cygnus" loading="lazy">
+              <span class="card-tag">Band 2 &bull; 1.4 µm</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">SPHEREx Observatory Maps Stars and Dust in Cygnus</h3>
+              <p class="card-desc">AvmImage 44: High-resolution infrared mapping of stellar continuum and warm interstellar dust across Cygnus.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+
+          <!-- Card 15 -->
+          <article class="gallery-card" data-target="cygnus_complex" data-epoch="0" data-band="3" tabindex="0" role="button" aria-label="Load SPHEREx Observatory Maps Interstellar Ice in Milky Way in viewer">
+            <div class="card-media">
+              <img src="assets/images/cygnus-interstellar-ice-43.jpg" alt="SPHEREx Observatory spectroscopic mapping of interstellar water and carbon ice" loading="lazy">
+              <span class="card-tag">Band 3 &bull; 3.0 µm</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">SPHEREx Observatory Maps Interstellar Ice in Milky Way</h3>
+              <p class="card-desc">AvmImage 43: Infrared spectroscopic mapping tracing interstellar water (3.0 µm) and carbon ice absorption features.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
         </div>
       </div>
     </section>
@@ -493,25 +522,25 @@
         </div>
 
         <div class="team-grid">
-          <!-- Member 1 -->
+          <!-- Role 1 -->
           <div class="team-card">
-            <div class="team-role">Team Lead &amp; Backend Engineer</div>
+            <h3 class="team-name">Team Lead &amp; Backend Engineer</h3>
             <p class="team-desc">
               Project leadership, SPHEREx survey methodology, Python/Astropy FITS processing pipeline, and Caltech IRSA archive integration.
             </p>
           </div>
 
-          <!-- Member 2 -->
+          <!-- Role 2 -->
           <div class="team-card">
-            <div class="team-role">Frontend Engineer &amp; Astrometry</div>
+            <h3 class="team-name">Frontend Engineer &amp; Astrometry</h3>
             <p class="team-desc">
               Full-bleed sky viewer architecture, time-slider 1:1 pointer tracking, Blink Comparator engine, and API-first fallback client.
             </p>
           </div>
 
-          <!-- Member 3 -->
+          <!-- Role 3 -->
           <div class="team-card">
-            <div class="team-role">UI/UX &amp; Design Systems Lead</div>
+            <h3 class="team-name">UI/UX &amp; Design Systems Lead</h3>
             <p class="team-desc">
               Apple Liquid Glass visual tokens, accessibility compliance, responsive layout grids, and interactive ergonomics.
             </p>

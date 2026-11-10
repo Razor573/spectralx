@@ -237,9 +237,9 @@ button, input, select {
 
 .viewer-fullbleed-stage {
   width: 100vw;
-  height: calc(100vh - var(--header-height));
-  min-height: 600px;
-  max-height: 1020px;
+  height: min(calc(100vh - var(--header-height)), 820px);
+  min-height: 580px;
+  max-height: 820px;
   position: relative;
   overflow: hidden;
   user-select: none;
@@ -253,6 +253,7 @@ button, input, select {
   display: block;
   opacity: 1;
   transition: opacity 160ms var(--ease-spring);
+  image-rendering: -webkit-optimize-contrast;
 }
 
 /* Error State Overlay */
@@ -1244,7 +1245,7 @@ button, input, select {
   line-height: 1.4;
 }
 
-/* Team Grid (3 Members with Real Names) */
+/* Team Grid (3 Roles) */
 .team-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

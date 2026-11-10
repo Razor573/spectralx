@@ -38,6 +38,7 @@ const CELESTIAL_TARGETS = {
         band_um: 1.0,
         band_number: 1,
         image_url: "assets/images/cluster-survey-cyan.jpg",
+        image_url_hires: "assets/images/cluster-survey-cyan-hires.jpg",
         marker_pos: { x: 47.0, y: 42.4 }
       },
       {
@@ -45,12 +46,13 @@ const CELESTIAL_TARGETS = {
         band_um: 1.4,
         band_number: 2,
         image_url: "assets/images/cluster-survey-blue.jpg",
+        image_url_hires: "assets/images/cluster-survey-blue-hires.jpg",
         marker_pos: { x: 54.6, y: 34.7 }
       }
     ],
     bands: {
-      1: { um: 1.0, label: "Band 1 (1.0 µm)", image_url: "assets/images/cluster-survey-cyan.jpg", epoch_index: 0 },
-      2: { um: 1.4, label: "Band 2 (1.4 µm)", image_url: "assets/images/cluster-survey-blue.jpg", epoch_index: 1 }
+      1: { um: 1.0, label: "Band 1 (1.0 µm)", image_url: "assets/images/cluster-survey-cyan.jpg", image_url_hires: "assets/images/cluster-survey-cyan-hires.jpg", epoch_index: 0 },
+      2: { um: 1.4, label: "Band 2 (1.4 µm)", image_url: "assets/images/cluster-survey-blue.jpg", image_url_hires: "assets/images/cluster-survey-blue-hires.jpg", epoch_index: 1 }
     }
   },
 
@@ -193,6 +195,30 @@ const CELESTIAL_TARGETS = {
       }
     ],
     bands: {}
+  },
+
+  cygnus_complex: {
+    id: "cygnus_complex",
+    name: "Cygnus Molecular Cloud Complex (2 Bands)",
+    ra: 308.20,
+    dec: 41.30,
+    fov_deg: "3.0° × 3.0°",
+    has_moving_candidate: false,
+    available_bands: [2, 3],
+    default_band: 2,
+    unavailable_notice: "Bands 1, 4-6 not observed for this field",
+    epochs: [
+      {
+        date: "2025-09-15",
+        band_um: 1.4,
+        band_number: 2,
+        image_url: "assets/images/cygnus-stars-dust-44.jpg"
+      }
+    ],
+    bands: {
+      2: { um: 1.4, label: "Band 2 (1.4 µm)", title: "Band 2 (1.4 µm: Stars & Dust Continuum)", image_url: "assets/images/cygnus-stars-dust-44.jpg" },
+      3: { um: 3.0, label: "Band 3 (3.0 µm)", title: "Band 3 (3.0 µm: Interstellar Ice Absorption)", image_url: "assets/images/cygnus-interstellar-ice-43.jpg" }
+    }
   }
 };
 
@@ -371,34 +397,32 @@ function preloadTargetImages(target, onProgress = null) {
 /**
  * Renders the stage image with generation-based stale-load protection.
  */
-function displayImageTile(targetUrl) {
+function displayImageTile(targetUrl, hiresUrl = null) {
   if (!ui.skyDisplay) return;
 
   hideViewerError();
 
   const thisGen = ++appState.loadGeneration;
 
-  // Immediate swap if already loaded and cached
-  const cachedImg = appState.preloadedImages.get(targetUrl);
-  if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+  const applySrc = () => {
+    if (hiresUrl) {
+      ui.skyDisplay.srcset = `${hiresUrl} 2048w, ${targetUrl} 1024w`;
+      ui.skyDisplay.sizes = "100vw";
+    } else {
+      ui.skyDisplay.removeAttribute("srcset");
+      ui.skyDisplay.removeAttribute("sizes");
+    }
     ui.skyDisplay.src = targetUrl;
     ui.skyDisplay.style.opacity = "1";
-    return;
-  }
+  };
 
-  // Load in background; only apply if still current generation
+  applySrc();
+
+  // Background caching & error tracking
   const loader = new Image();
   loader.src = targetUrl;
   loader.onload = () => {
     appState.preloadedImages.set(targetUrl, loader);
-    if (thisGen !== appState.loadGeneration) {
-      // Discard stale load superseded by a newer scrub
-      return;
-    }
-    if (ui.skyDisplay) {
-      ui.skyDisplay.src = targetUrl;
-      ui.skyDisplay.style.opacity = "1";
-    }
   };
   loader.onerror = () => {
     if (thisGen === appState.loadGeneration) {
@@ -433,29 +457,44 @@ function hideViewerError() {
 // 7. TARGET LOADING & UI SYNCHRONIZATION
 // =========================================================================
 async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
-  if (API_BASE_URL) {
-    try {
-      const queryRa = slewMeta ? slewMeta.ra : CELESTIAL_TARGETS[targetKey]?.ra || 156.09;
-      const queryDec = slewMeta ? slewMeta.dec : CELESTIAL_TARGETS[targetKey]?.dec || -41.64;
-      const url = `${API_BASE_URL}/api/sky-view?ra=${encodeURIComponent(queryRa)}&dec=${encodeURIComponent(queryDec)}`;
+  const localTarget = CELESTIAL_TARGETS[targetKey] || CELESTIAL_TARGETS.planet_x_field;
+  const baseUrl = API_BASE_URL !== undefined ? API_BASE_URL : "";
+  const queryHost = baseUrl || (typeof window !== "undefined" && window.location && window.location.origin && window.location.origin.startsWith("http") ? window.location.origin : "");
 
-      const response = await fetch(url);
-      if (response.ok) {
-        const json = await response.json();
+  if (queryHost) {
+    try {
+      const queryRa = slewMeta ? slewMeta.ra : (localTarget?.ra ?? 156.09);
+      const queryDec = slewMeta ? slewMeta.dec : (localTarget?.dec ?? -41.64);
+      const url = `${queryHost}/api/sky-view?ra=${encodeURIComponent(queryRa)}&dec=${encodeURIComponent(queryDec)}`;
+
+      const response = await fetch(url).catch(() => null);
+      if (response && response.ok) {
+        const json = await response.json().catch(() => null);
         if (json && Array.isArray(json.epochs) && json.epochs.length > 0) {
+          const mergedEpochs = json.epochs.map((ep, idx) => {
+            const localEp = (localTarget && localTarget.epochs && localTarget.epochs[idx]) || {};
+            return {
+              ...localEp,
+              ...ep,
+              marker_pos: ep.marker_pos || localEp.marker_pos,
+              image_url_hires: ep.image_url_hires || localEp.image_url_hires
+            };
+          });
+
           setLiveStatus(true);
+          appState.activeTargetKey = targetKey;
           appState.activeTarget = {
             id: targetKey,
-            name: json.target_name || `Field (${queryRa}°, ${queryDec}°)`,
+            name: json.target_name || (localTarget?.name || `Field (${queryRa}°, ${queryDec}°)`),
             ra: json.ra ?? queryRa,
             dec: json.dec ?? queryDec,
-            fov_deg: json.fov_deg || "3.5° × 3.5°",
-            has_moving_candidate: Boolean(json.has_moving_candidate),
-            available_bands: json.available_bands || [1],
-            default_band: json.default_band || 1,
-            unavailable_notice: json.unavailable_notice || "",
-            epochs: json.epochs,
-            bands: json.bands || {}
+            fov_deg: json.fov_deg || (localTarget?.fov_deg || "3.5° × 3.5°"),
+            has_moving_candidate: json.has_moving_candidate !== undefined ? Boolean(json.has_moving_candidate) : Boolean(localTarget?.has_moving_candidate),
+            available_bands: json.available_bands || (localTarget?.available_bands || [1]),
+            default_band: json.default_band || (localTarget?.default_band || 1),
+            unavailable_notice: json.unavailable_notice || (localTarget?.unavailable_notice || ""),
+            epochs: mergedEpochs,
+            bands: json.bands || (localTarget?.bands || {})
           };
           syncViewportUI(forcedBand);
           preloadTargetImages(appState.activeTarget);
@@ -463,7 +502,7 @@ async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
         }
       }
     } catch (err) {
-      console.warn("[SPECTRALx] Backend API unavailable. Operating in local fallback mode.", err);
+      // Backend unavailable - silent fallback to local dataset
     }
   }
 
@@ -617,15 +656,17 @@ function renderStage() {
 
   let displayUrl = currentEpoch.image_url;
   let activeUm = currentEpoch.band_um;
+  let hiresUrl = currentEpoch.image_url_hires || null;
 
   if (target.bands && target.bands[appState.bandNumber]) {
     displayUrl = target.bands[appState.bandNumber].image_url;
     activeUm = target.bands[appState.bandNumber].um;
+    hiresUrl = target.bands[appState.bandNumber].image_url_hires || null;
   }
 
   appState.bandUm = activeUm;
 
-  displayImageTile(displayUrl);
+  displayImageTile(displayUrl, hiresUrl);
 
   // Update HUD Band (Step 0.12 #3a: 2 decimal places so 0.96 and 0.98 are distinguishable)
   if (ui.hudBand) {
@@ -940,7 +981,13 @@ function bindUIEvents() {
 // =========================================================================
 // 11. INITIALIZATION ON DOM READY
 // =========================================================================
-document.addEventListener("DOMContentLoaded", () => {
+function initializeApp() {
   bindUIEvents();
   loadTarget("planet_x_field");
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeApp);
+} else {
+  initializeApp();
+}
