@@ -501,11 +501,14 @@ async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
     // Retry while the backend is waking up: a sleeping container answers
     // the first fetch with a "waking up" page (or nothing at all) and the
     // page used to give up after that one attempt, so the LIVE indicator
-    // never appeared on a cold start. Retry a few times with backoff;
-    // a newer target selection cancels the retries via loadTargetSeq.
+    // never appeared on a cold start. Retry a few times with backoff, then
+    // keep polling once a minute in the background until it answers -
+    // cold wakes can take several minutes, and a judge who stays on the
+    // page should still see the badge flip to LIVE. A newer target
+    // selection cancels the retries via loadTargetSeq.
     // A 404 (genuinely no coverage) is not retried.
     const retryDelaysMs = [15000, 30000, 60000, 60000];
-    for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
+    for (let attempt = 0; ; attempt++) {
       if (mySeq !== loadTargetSeq) return; // superseded by a newer selection
       let retryable = false;
       try {
@@ -569,13 +572,15 @@ async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
       } catch (err) {
         retryable = true; // backend unreachable - local dataset is already showing
       }
-      if (!retryable || attempt === retryDelaysMs.length) break;
-      await new Promise((resolve) => setTimeout(resolve, retryDelaysMs[attempt]));
+      if (!retryable) break;
+      if (attempt === retryDelaysMs.length) setLiveStatusSaved();
+      const delayMs = attempt < retryDelaysMs.length ? retryDelaysMs[attempt] : 60000;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
 
-  // Reached only when no live data merged (retries exhausted, 404, or no
-  // backend): the local dataset is on screen, so say so on the badge.
+  // Reached only on a permanent non-retryable answer (404, or valid data
+  // with no usable epochs): the local dataset is on screen, so say so.
   if (mySeq === loadTargetSeq) setLiveStatusSaved();
 }
 
