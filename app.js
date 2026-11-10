@@ -13,10 +13,16 @@
 /**
  * Single clearly-marked API configuration point.
  * Empty string by default activates verified local fallback dataset.
- * To point to your teammate's Python/Astropy backend:
- * const API_BASE_URL = "https://api.your-domain.org";
+ * On GitHub Pages (which never sleeps, so the page itself always loads
+ * instantly) the live backend lives on SnapDeploy, so point there;
+ * everywhere else (SnapDeploy itself, localhost) use same-origin.
+ * The SnapDeploy backend already sends Access-Control-Allow-Origin: *,
+ * so the cross-origin call from Pages is allowed. If the backend is
+ * asleep the call fails silently and the local dataset stays on screen.
  */
-const API_BASE_URL = "";
+const API_BASE_URL = (typeof window !== "undefined" && window.location && window.location.hostname && window.location.hostname.endsWith("github.io"))
+  ? "https://spectralx-7b73d.containers.snapdeploy.app"
+  : "";
 
 // =========================================================================
 // 2. CELESTIAL TARGETS DATASET (GENUINE OBSERVATIONS & HONEST BANDS)
