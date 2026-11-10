@@ -2,10 +2,10 @@
 > **NASA International Space Apps Challenge 2026**  
 > **Challenge:** *"Planet X and SPHEREx"*  
 > **Team:** PROJECT SPECTRALx  
-> **Team Members:**  
-> - **Ghazanfar Kalhoro (Kabi)**: Team Lead & Backend Engineer (Python/Astropy, SPHEREx survey methodology, IRSA integration)  
-> - **Vagif Novruzov**: Frontend Engineer & Astrometry (Full-bleed sky viewer, Blink Comparator engine, time-slider)  
-> - **Loudjeine Boussalem (Sylveon)**: UI/UX & Design Systems Lead (Apple Liquid Glass design tokens, accessibility, responsive ergonomics)  
+> **Team Roles:**  
+> - **Team Lead & Backend Engineer** (Python/Astropy, SPHEREx survey methodology, IRSA integration)  
+> - **Frontend Engineer & Astrometry** (Full-bleed sky viewer, Blink Comparator engine, time-slider)  
+> - **UI/UX & Design Systems Lead** (Apple Liquid Glass design tokens, accessibility, responsive ergonomics)  
 
 SPECTRALx is a public-facing, time-domain astronomical web explorer designed to visualize multi-epoch, multi-wavelength infrared data from NASA's SPHEREx mission. By comparing celestial observations across time with an interactive time-slider and high-speed Blink Comparator, users and citizen scientists can spot shifting trans-Neptunian bodies, Kuiper belt objects, cold brown dwarfs, and hypothetical Planet X candidates against stationary background stars.
 
