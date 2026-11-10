@@ -469,6 +469,25 @@ let loadTargetSeq = 0;
 async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
   const mySeq = ++loadTargetSeq;
   const localTarget = CELESTIAL_TARGETS[targetKey] || CELESTIAL_TARGETS.planet_x_field;
+
+  // Render the local dataset immediately: the page is complete and blink
+  // works from the first paint. The live API response merges in silently
+  // when it arrives (a cold IRSA TAP query takes ~10-14s, and the page
+  // used to wait for it before showing anything interactive).
+  setLiveStatus(false);
+  appState.activeTargetKey = localTarget.id;
+  if (slewMeta) {
+    appState.activeTarget = {
+      ...localTarget,
+      ra: slewMeta.ra,
+      dec: slewMeta.dec
+    };
+  } else {
+    appState.activeTarget = localTarget;
+  }
+  syncViewportUI(forcedBand);
+  preloadTargetImages(appState.activeTarget);
+
   const baseUrl = API_BASE_URL !== undefined ? API_BASE_URL : "";
   const queryHost = baseUrl || (typeof window !== "undefined" && window.location && window.location.origin && window.location.origin.startsWith("http") ? window.location.origin : "");
 
@@ -526,27 +545,9 @@ async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
         }
       }
     } catch (err) {
-      // Backend unavailable - silent fallback to local dataset
+      // Backend unavailable - local dataset is already showing
     }
   }
-
-  if (mySeq !== loadTargetSeq) return; // superseded by a newer selection
-  setLiveStatus(false);
-  const target = CELESTIAL_TARGETS[targetKey] || CELESTIAL_TARGETS.planet_x_field;
-  appState.activeTargetKey = target.id;
-
-  if (slewMeta) {
-    appState.activeTarget = {
-      ...target,
-      ra: slewMeta.ra,
-      dec: slewMeta.dec
-    };
-  } else {
-    appState.activeTarget = target;
-  }
-
-  syncViewportUI(forcedBand);
-  preloadTargetImages(appState.activeTarget);
 }
 
 function setLiveStatus(isLive) {
