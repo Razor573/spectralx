@@ -9,12 +9,41 @@ alongside health diagnostics, target catalogs, and tile delivery with full CORS 
 
 ---
 
-## SPHEREx Science & IRSA Archive Architecture
+## Live IRSA SPHEREx TAP Integration & Data Pipeline
 
-### Data Provenance
-1. **Caltech IRSA SPHEREx Mission Archive**:
-   - Quick Release 2 (QR2, October 2025) and Quick Release 3 (QR3, September 2026).
-   - High-throughput AWS S3 direct data access and FITS cutout service.
+### Programmatic Upstream Service
+1. **Caltech IRSA SPHEREx TAP Service**:
+   - Endpoint: `https://irsa.ipac.caltech.edu/TAP/sync`
+   - Table: `spherex.obscore` (IVOA ObsCore data model for SPHEREx products)
+   - Protocol: IVOA Table Access Protocol (TAP) with Astronomical Data Query Language (ADQL)
+   - Coverage: Quick Release 2 (QR2, October 2025) and Quick Release 3 (QR3, September 2026)
+
+2. **How the Live Query Works**:
+   - For every request to `GET /api/sky-view?ra={ra}&dec={dec}`, the server first attempts a live cone search query against `spherex.obscore`:
+     ```sql
+     SELECT TOP 10 obs_id, s_ra, s_dec, access_url, t_min, t_max, em_min, em_max
+     FROM spherex.obscore
+     WHERE 1=CONTAINS(POINT('ICRS',s_ra,s_dec),CIRCLE('ICRS',ra,dec,5.0))
+     ORDER BY t_min ASC
+     ```
+   - If IRSA returns matching observation records, the service translates MJD observation dates (`t_min`) to UTC calendar epochs and spectral ranges (`em_min`, `em_max`) to SPHEREx band numbers (1-6).
+   - Responses are cached on disk at `assets/cache/irsa/` so repeat requests execute instantly without repeated upstream latency.
+
+3. **Resilient Local Fallback Engine**:
+   - If the upstream IRSA TAP service is unreachable, network access is severed, or the requested coordinates fall outside current quick-release footprints, the service falls back silently to the local high-fidelity dataset.
+   - The frontend experiences zero downtime, zero layout breakages, and zero error badges.
+
+4. **High-Resolution Desktop Hero Support**:
+   - Every band and epoch object returned by the API carries an explicit `image_url_hires` field (e.g. `assets/images/cluster-survey-cyan-hires.jpg` and `assets/images/cluster-survey-blue-hires.jpg` for Planet X).
+   - At desktop viewports (1440px and 1920px), the frontend serves crisp 2048w assets via responsive `srcset`.
+
+---
+
+## SPHEREx Mission References
+
+1. **IRSA Mission Archive**:
+   - Quick Release 2 (QR2) and Quick Release 3 (QR3) public releases.
+   - Direct AWS S3 access and FITS cutout service.
    - Reference: `https://irsa.ipac.caltech.edu/Missions/spherex.html`
 
 2. **SPHEREx Data Products Schedule**:
@@ -57,18 +86,40 @@ Queries the SPHEREx survey archive for infrared observations covering the reques
       "date": "2025-04-15",
       "band_um": 1.0,
       "band_number": 1,
-      "image_url": "assets/images/cluster-survey-cyan.jpg"
+      "image_url": "assets/images/cluster-survey-cyan.jpg",
+      "image_url_hires": "assets/images/cluster-survey-cyan-hires.jpg",
+      "marker_pos": { "x": 47.0, "y": 42.4 }
     },
     {
       "date": "2026-02-14",
       "band_um": 1.4,
       "band_number": 2,
-      "image_url": "assets/images/cluster-survey-blue.jpg"
+      "image_url": "assets/images/cluster-survey-blue.jpg",
+      "image_url_hires": "assets/images/cluster-survey-blue-hires.jpg",
+      "marker_pos": { "x": 54.6, "y": 34.7 }
     }
   ],
   "bands": {
-    "1": { "um": 1.0, "label": "Band 1 (1.0 µm)", "image_url": "assets/images/cluster-survey-cyan.jpg" },
-    "2": { "um": 1.4, "label": "Band 2 (1.4 µm)", "image_url": "assets/images/cluster-survey-blue.jpg" }
+    "1": {
+      "um": 1.0,
+      "label": "Band 1 (1.0 µm)",
+      "image_url": "assets/images/cluster-survey-cyan.jpg",
+      "image_url_hires": "assets/images/cluster-survey-cyan-hires.jpg"
+    },
+    "2": {
+      "um": 1.4,
+      "label": "Band 2 (1.4 µm)",
+      "image_url": "assets/images/cluster-survey-blue.jpg",
+      "image_url_hires": "assets/images/cluster-survey-blue-hires.jpg"
+    }
+  },
+  "survey_provenance": {
+    "source": "NASA/IPAC Infrared Science Archive (IRSA) Live TAP Service",
+    "service_endpoint": "https://irsa.ipac.caltech.edu/TAP/sync",
+    "query_table": "spherex.obscore",
+    "data_release": "Quick Release 2 (QR2 / QR3)",
+    "live_query": true,
+    "upstream_records_count": 5
   }
 }
 ```
@@ -95,51 +146,30 @@ Queries the SPHEREx survey archive for infrared observations covering the reques
 
 ### 2. `GET /api/health`
 Service health check and telemetry.
-```json
-{
-  "status": "healthy",
-  "service": "PROJECT SPECTRALx SPHEREx Sky Explorer API",
-  "version": "2.0.0",
-  "mission": "NASA SPHEREx",
-  "archive": "NASA/IPAC Infrared Science Archive (IRSA) QR2",
-  "band_coverage_um": "0.75 - 5.00"
-}
-```
 
 ### 3. `GET /api/targets`
-Retrieves the complete catalog of verified celestial survey targets.
+Retrieves the complete catalog of verified celestial survey targets (8 fields).
 
 ---
 
-## Local Development & Execution
+## Dependencies & Installation
 
-Run with Python 3.8+ (standard library only, zero external dependencies required):
+Install dependencies using `requirements.txt`:
 ```bash
-# Start backend server on default port 3000
-python3 server.py
-
-# Or start with custom port
-python3 server.py --port 8000
+pip install -r requirements.txt
 ```
+
+**Dependencies (`requirements.txt`):**
+- `astropy>=5.0.0`: Astronomical FITS parsing, WCS transformations, and MJD time conversions.
+- `numpy>=1.20.0`: Fast multi-dimensional array operations and percentile normalization.
+- `pillow>=9.0.0`: Image processing and high-fidelity JPEG/PNG conversion.
 
 ---
 
-## Free Cloud Deployment Options
+## Local Execution
 
-### Option 1: Render (Free Web Service)
-1. Fork or push repository to GitHub.
-2. In Render dashboard, click **New > Web Service**.
-3. Settings:
-   - **Environment**: Python 3
-   - **Build Command**: `echo 'Ready'`
-   - **Start Command**: `python3 server.py --port $PORT`
-4. Copy the assigned URL (e.g., `https://spectralx.onrender.com`) and paste into `API_BASE_URL` in `app.js` if running frontend on a separate host.
-
-### Option 2: Fly.io
+Start the unified server (handles both REST API and static frontend):
 ```bash
-fly launch --name spectralx-api
-fly deploy
+python3 server.py --port 3000
 ```
-
-### Option 3: Vercel / Netlify (Serverless Python Function)
-Point the rewrites in `vercel.json` to `api/sky-view` or deploy the integrated frontend-backend bundle.
+Open `http://localhost:3000` in your web browser.
