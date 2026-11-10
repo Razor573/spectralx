@@ -498,17 +498,27 @@ async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
   const queryHost = baseUrl || (typeof window !== "undefined" && window.location && window.location.origin && window.location.origin.startsWith("http") ? window.location.origin : "");
 
   if (queryHost) {
-    try {
-      const queryRa = slewMeta ? slewMeta.ra : (localTarget?.ra ?? 156.09);
-      const queryDec = slewMeta ? slewMeta.dec : (localTarget?.dec ?? -41.64);
-      const url = `${queryHost}/api/sky-view?ra=${encodeURIComponent(queryRa)}&dec=${encodeURIComponent(queryDec)}`;
-
-      const response = await fetch(url).catch(() => null);
+    // Retry while the backend is waking up: a sleeping container answers
+    // the first fetch with a "waking up" page (or nothing at all) and the
+    // page used to give up after that one attempt, so the LIVE indicator
+    // never appeared on a cold start. Retry a few times with backoff;
+    // a newer target selection cancels the retries via loadTargetSeq.
+    // A 404 (genuinely no coverage) is not retried.
+    const retryDelaysMs = [15000, 30000, 60000, 60000];
+    for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
       if (mySeq !== loadTargetSeq) return; // superseded by a newer selection
-      if (response && response.ok) {
-        const json = await response.json().catch(() => null);
-        if (mySeq !== loadTargetSeq) return; // superseded while parsing
-        if (json && Array.isArray(json.epochs) && json.epochs.length > 0) {
+      let retryable = false;
+      try {
+        const queryRa = slewMeta ? slewMeta.ra : (localTarget?.ra ?? 156.09);
+        const queryDec = slewMeta ? slewMeta.dec : (localTarget?.dec ?? -41.64);
+        const url = `${queryHost}/api/sky-view?ra=${encodeURIComponent(queryRa)}&dec=${encodeURIComponent(queryDec)}`;
+
+        const response = await fetch(url).catch(() => null);
+        if (mySeq !== loadTargetSeq) return; // superseded by a newer selection
+        if (response && response.ok) {
+          const json = await response.json().catch(() => null);
+          if (mySeq !== loadTargetSeq) return; // superseded while parsing
+          if (json && Array.isArray(json.epochs) && json.epochs.length > 0) {
           const mergedEpochs = json.epochs.map((ep, idx) => {
             const localEp = (localTarget && localTarget.epochs && localTarget.epochs[idx]) || {};
             return {
@@ -549,16 +559,48 @@ async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
           preloadTargetImages(appState.activeTarget);
           return;
         }
+        // Valid answer, but no usable epochs: nothing a retry would fix.
+        break;
+      } else if (response && response.status === 404) {
+        break; // genuinely no coverage here
+      } else {
+        retryable = true; // network error, 5xx, or non-JSON (waking-up page)
       }
-    } catch (err) {
-      // Backend unavailable - local dataset is already showing
+      } catch (err) {
+        retryable = true; // backend unreachable - local dataset is already showing
+      }
+      if (!retryable || attempt === retryDelaysMs.length) break;
+      await new Promise((resolve) => setTimeout(resolve, retryDelaysMs[attempt]));
     }
   }
+
+  // Reached only when no live data merged (retries exhausted, 404, or no
+  // backend): the local dataset is on screen, so say so on the badge.
+  if (mySeq === loadTargetSeq) setLiveStatusSaved();
 }
 
 function setLiveStatus(isLive) {
   appState.isLiveApi = isLive;
   appState.isLiveApiConnected = isLive;
+  // Visible badge in the HUD pill: LIVE when the backend answered,
+  // Connecting… while its retries are still running.
+  if (typeof document !== "undefined") {
+    const dot = document.getElementById("liveDot");
+    const label = document.getElementById("hudLive");
+    if (dot) dot.className = "live-dot" + (isLive ? " is-live" : "");
+    if (label) label.textContent = isLive ? "LIVE" : "Connecting…";
+  }
+}
+
+function setLiveStatusSaved() {
+  // Retries exhausted (or no backend at all): say honestly that the
+  // page is showing the built-in saved dataset.
+  if (typeof document !== "undefined") {
+    const dot = document.getElementById("liveDot");
+    const label = document.getElementById("hudLive");
+    if (dot) dot.className = "live-dot is-saved";
+    if (label) label.textContent = "Saved data";
+  }
 }
 
 /**

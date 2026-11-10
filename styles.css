@@ -521,6 +521,22 @@ button, input, select {
   color: var(--glass-border);
 }
 
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-sample);
+  display: inline-block;
+}
+
+.live-dot.is-live {
+  background: var(--status-live);
+}
+
+.live-dot.is-saved {
+  background: var(--text-secondary);
+}
+
 .hud-actions {
   display: inline-flex;
   align-items: center;
