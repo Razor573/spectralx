@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPECTRALx: SPHEREx Sky Explorer | NASA Space Apps 2026</title>
+  <meta name="description" content="Public-facing time-domain astronomical web explorer visualizing NASA SPHEREx multi-epoch infrared sky images to spot Planet X candidates against fixed background stars.">
+  
+  <!-- Open Graph & Social Meta Tags -->
+  <meta property="og:title" content="SPECTRALx: SPHEREx Sky Explorer">
+  <meta property="og:description" content="Interactive time-domain astronomical tool visualizing NASA SPHEREx multi-epoch infrared surveys to spot moving Planet X candidates against fixed stars.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/images/cluster-survey-cyan.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SPECTRALx: SPHEREx Sky Explorer">
+  <meta name="twitter:description" content="Time-domain astronomical explorer for NASA's SPHEREx mission.">
+  <meta name="twitter:image" content="assets/images/cluster-survey-cyan.jpg">
+
+  <!-- Favicon (Inline SVG Data URI: Orbit & Infrared Sensor) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%2306080d' stroke='%23f97316' stroke-width='2'/%3E%3Cellipse cx='16' cy='16' rx='12' ry='5' fill='none' stroke='%23f5f7fa' stroke-width='1.5' transform='rotate(-25 16 16)'/%3E%3Ccircle cx='16' cy='16' r='3.5' fill='%23f97316'/%3E%3C/svg%3E">
+
+  <!-- Preload critical astronomical assets -->
+  <link rel="preload" href="assets/images/cluster-survey-cyan.jpg" as="image">
+  <link rel="preload" href="assets/images/cluster-survey-blue.jpg" as="image">
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="space-theme">
+
+  <!-- Floating Glass Navigation Header -->
+  <header class="glass-header" id="navbar">
+    <div class="header-container">
+      <a href="#viewer" class="brand-link" aria-label="SPECTRALx SPHEREx Sky Explorer Home">
+        <svg class="brand-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="16" cy="16" r="13" stroke="currentColor" stroke-width="1.75" stroke-dasharray="3 3"/>
+          <ellipse cx="16" cy="16" rx="13" ry="5.5" stroke="currentColor" stroke-width="1.75" transform="rotate(-25 16 16)"/>
+          <circle cx="16" cy="16" r="3.5" fill="var(--accent-orbit)"/>
+        </svg>
+        <div class="brand-text">
+          <span class="brand-title">SPECTRALx</span>
+          <span class="brand-subtitle">SPHEREx Explorer</span>
+        </div>
+      </a>
+
+      <nav class="nav-links" aria-label="Primary Navigation">
+        <a href="#viewer" class="nav-item">Sky Viewer</a>
+        <a href="#explainer" class="nav-item">Wavelength Bands</a>
+        <a href="#gallery" class="nav-item">Image Library</a>
+        <a href="#about-data" class="nav-item">About the Data</a>
+        <a href="#team" class="nav-item">Team</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- =========================================================================
+         SECTION 1: HERO SKY VIEWER (FULL-BLEED EDGE-TO-EDGE)
+         The Viewer IS the Hero. Edge-to-edge, content-first.
+         ========================================================================= -->
+    <section class="viewer-hero-section" id="viewer" aria-label="SPHEREx Interactive Sky Viewer">
+      <div class="viewer-fullbleed-stage" id="viewerStage">
+        
+        <!-- Celestial Image Stage -->
+        <img 
+          id="skyDisplay" 
+          class="sky-fullbleed-img" 
+          src="assets/images/cluster-survey-cyan.jpg" 
+          alt="SPHEREx multi-epoch sky observation field"
+        >
+
+        <!-- Visible Error State Overlay (Shown on 404 or image load failures) -->
+        <div id="viewerErrorMessage" class="viewer-error-overlay" hidden>
+          <div class="error-card">
+            <svg class="error-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <div class="error-text">
+              <h3>Image Tile Unavailable</h3>
+              <p id="errorTileDetails">Failed to load the requested celestial image file.</p>
+            </div>
+            <button id="btnErrorRetry" class="error-retry-btn" type="button">Reload Fallback</button>
+          </div>
+        </div>
+
+        <!-- Astrometric Reticle Overlays -->
+        <div class="reticle-grid" id="crosshairGrid" aria-hidden="true">
+          <div class="reticle-axis axis-horizontal"></div>
+          <div class="reticle-axis axis-vertical"></div>
+          <div class="reticle-circle circle-inner"></div>
+          <div class="reticle-circle circle-outer"></div>
+        </div>
+
+        <!-- Moving Candidate Marker Reticle (Simulated Candidate) -->
+        <div class="motion-marker visible" id="motionMarker" style="left: 47.0%; top: 42.4%;" aria-hidden="true">
+          <div class="marker-reticle-ring"></div>
+          <div class="marker-center-dot"></div>
+          <div class="marker-info-tag">Simulated Candidate</div>
+        </div>
+
+        <!-- Overlaid Hero Copy (Glass Badge on top-left of sky image) -->
+        <div class="hero-overlay-copy" id="heroCopy">
+          <span class="hero-eyebrow">NASA SPACE APPS 2026 &bull; PLANET X AND SPHEREx</span>
+          <h1 class="hero-title">Watch the sky change over time.</h1>
+          <p class="hero-tagline">
+            NASA's SPHEREx mission maps 102 near-infrared bands. Drag epochs or blink to spot moving Planet X candidates against fixed stars.
+          </p>
+        </div>
+
+        <!-- Overlaid Top-Right HUD Bar (Clear gap guaranteed across desktop laptop widths) -->
+        <div class="viewer-hud-bar" id="hudBar">
+          <div class="hud-pill" id="hudPill" aria-label="Current Celestial Coordinates and Band">
+            <span class="hud-item"><span class="hud-label">RA</span> <strong id="hudRa">156.09°</strong></span>
+            <span class="hud-sep">&bull;</span>
+            <span class="hud-item"><span class="hud-label">Dec</span> <strong id="hudDec">-41.64°</strong></span>
+            <span class="hud-sep">&bull;</span>
+            <span class="hud-item"><span class="hud-label">FOV</span> <strong id="hudFov">3.5° × 3.5°</strong></span>
+            <span class="hud-sep">&bull;</span>
+            <span class="hud-item"><span class="hud-label">Band</span> <strong id="hudBand">1.0 µm</strong></span>
+          </div>
+
+          <div class="hud-actions">
+            <button id="toggleMarkerBtn" class="hud-action-btn active" type="button" title="Toggle Moving Candidate Marker Reticle" aria-pressed="true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <span>Marker</span>
+            </button>
+            <button id="toggleCrosshairBtn" class="hud-action-btn" type="button" title="Toggle Center Crosshair Grid" aria-pressed="false">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Crosshair</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Overlaid Bottom Floating Toolbar (Slim, Integrated, Zero Dead Space) -->
+        <div class="viewer-floating-deck" id="floatingDeck">
+          <!-- Primary Controls Row: Target & Slew Balanced Side-by-Side -->
+          <div class="deck-top-row">
+            <div class="target-select-wrap">
+              <label for="targetSelect" class="deck-label">Target Field</label>
+              <select id="targetSelect" class="glass-select">
+                <option value="planet_x_field" selected>Planet X Candidate Field (2 Epochs)</option>
+                <option value="star_formation_hub">Star Formation Hub: Carina Nebula (2 Bands)</option>
+                <option value="ngc_1760">NGC 1760 Star-Forming Nebula (3 Bands)</option>
+                <option value="galactic_bulge">Galactic Bulge &amp; Inner Disk (1 Epoch, 2 Bands)</option>
+                <option value="milkyway_allsky">Milky Way All-Sky Survey (2 Bands: Stars vs Dust)</option>
+                <option value="molecular_filaments">Herschel Molecular Cloud Filaments (1 Epoch)</option>
+                <option value="spherex_mosaic">SPHEREx 6-Channel Detector Focal Plane Array</option>
+              </select>
+            </div>
+
+            <div class="coord-inputs-wrap">
+              <div class="input-unit">
+                <label for="raInput" class="deck-label">RA (°)</label>
+                <input type="number" id="raInput" class="glass-input" value="156.09" min="0" max="360" step="0.01" aria-label="Right Ascension in degrees (0 to 360)">
+              </div>
+              <div class="input-unit">
+                <label for="decInput" class="deck-label">Dec (°)</label>
+                <input type="number" id="decInput" class="glass-input" value="-41.64" min="-90" max="90" step="0.01" aria-label="Declination in degrees (-90 to 90)">
+              </div>
+              <button id="btnSlew" class="glass-btn btn-slew" type="button" title="Slew viewport to specified coordinates">
+                Slew
+              </button>
+            </div>
+            <div id="slewFeedback" class="slew-feedback-message" role="alert" aria-live="polite"></div>
+          </div>
+
+          <!-- Secondary Controls Row: Bands & Epoch Slider Integrated in One Compact Bar -->
+          <div class="deck-bottom-row">
+            <div class="deck-bands-col">
+              <span class="deck-label">Bands:</span>
+              <div class="band-chips-container" id="bandChipsContainer" role="radiogroup" aria-label="Available Wavelength Bands">
+                <!-- Dynamically populated or updated based on target -->
+                <button class="band-chip active" data-band="1" data-um="1.0" type="button" role="radio" aria-checked="true">
+                  <span class="chip-dot"></span> Band 1 (1.0 µm)
+                </button>
+                <button class="band-chip" data-band="2" data-um="1.4" type="button" role="radio" aria-checked="false">
+                  <span class="chip-dot"></span> Band 2 (1.4 µm)
+                </button>
+              </div>
+              <span id="bandNotice" class="band-notice-text" style="display: none;"></span>
+            </div>
+
+            <div class="deck-time-col">
+              <button id="btnBlink" class="btn-blink" type="button" title="Auto-flip between first and last epoch to detect moving objects">
+                <svg class="blink-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <span id="blinkBtnText">Blink Comparator</span>
+              </button>
+
+              <div class="slider-track-wrap">
+                <input 
+                  type="range" 
+                  id="epochSlider" 
+                  class="glass-slider" 
+                  min="0" 
+                  max="1" 
+                  step="1" 
+                  value="0" 
+                  aria-label="Observation epoch time slider"
+                >
+              </div>
+
+              <!-- Consolidated Single Date & Step Indicator -->
+              <div class="slider-metadata" id="epochMetadataDisplay">
+                <span id="epochDateDisplay" class="active-date-tag">2025-04-15</span>
+                <span class="meta-sep">&bull;</span>
+                <span id="epochStepDisplay" class="epoch-step-tag">Epoch <strong>1</strong> of <strong>2</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         SECTION 2: WAVELENGTH ARCHITECTURE (EXPLAINER STRIP)
+         ========================================================================= -->
+    <section class="content-section" id="explainer">
+      <div class="section-container">
+        <div class="section-header">
+          <span class="section-eyebrow">Spectrophotometric Array</span>
+          <h2 class="section-title">Wavelength Architecture</h2>
+          <p class="section-desc">
+            How SPHEREx decomposes celestial light across 102 near-infrared channels to separate foreground stars, solar system objects, and distant galaxies.
+          </p>
+        </div>
+
+        <div class="explainer-frame">
+          <img 
+            src="assets/images/wavelength-annotated.webp" 
+            alt="SPHEREx 6-band detector focal plane array annotated from short to long wavelength, highlighting geocoronal helium airglow, bright stars, and callouts of nearby and distant galaxies." 
+            class="explainer-strip-img"
+          >
+          <div class="explainer-caption">
+            <p>
+              <strong>Spectrophotometric Progression:</strong> Shorter near-infrared bands capture geocoronal Helium Airglow and bright Milky Way star continuum, while longer infrared channels penetrate obscuring dust to reveal spiral arms in nearby galaxies (green box) and faint, highly redshifted early galaxies (blue box).
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         SECTION 3: IMAGE LIBRARY (GALLERY)
+         Centered Balanced Grid: 10 Cards. Every card loads its exact thumbnail!
+         ========================================================================= -->
+    <section class="content-section" id="gallery">
+      <div class="section-container">
+        <div class="section-header">
+          <span class="section-eyebrow">Survey Archives</span>
+          <h2 class="section-title">Image Library</h2>
+          <p class="section-desc">
+            Browse sample astronomical survey images. Click any card to load that exact observation patch into the Sky Viewer.
+          </p>
+        </div>
+
+        <div class="gallery-grid">
+          <!-- Card 1 -->
+          <article class="gallery-card" data-target="planet_x_field" data-epoch="0" data-band="1" tabindex="0" role="button" aria-label="Load Planet X Search Field Epoch 1 in viewer">
+            <div class="card-media">
+              <img src="assets/images/cluster-survey-cyan.jpg" alt="Dense star cluster field observed in near-infrared band 1" loading="lazy">
+              <span class="card-tag">Epoch 1 &bull; 1.0 µm</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">Planet X Search Field (Epoch 1)</h3>
+              <p class="card-desc">First survey pass capturing a deep stellar field with a simulated moving candidate.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+
+          <!-- Card 2 -->
+          <article class="gallery-card" data-target="planet_x_field" data-epoch="1" data-band="2" tabindex="0" role="button" aria-label="Load Planet X Search Field Epoch 2 in viewer">
+            <div class="card-media">
+              <img src="assets/images/cluster-survey-blue.jpg" alt="Dense star cluster field observed 10 months later in band 2" loading="lazy">
+              <span class="card-tag">Epoch 2 &bull; 1.4 µm</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">Planet X Search Field (Epoch 2)</h3>
+              <p class="card-desc">Second survey epoch 10 months later; blinking with Epoch 1 reveals candidate displacement.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+
+          <!-- Card 3 -->
+          <article class="gallery-card" data-target="spherex_mosaic" data-epoch="0" data-band="default" tabindex="0" role="button" aria-label="Load SPHEREx 6-Channel Detector Array in viewer">
+            <div class="card-media">
+              <img src="assets/images/wavelength-six-bands.webp" alt="Raw 6-detector mosaic from SPHEREx focal plane array" loading="lazy">
+              <span class="card-tag">6-Channel Focal Plane</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">SPHEREx 6-Channel Detector Array</h3>
+              <p class="card-desc">Raw detector mosaic showing the spectrophotometric transition across 0.75–5.0 µm.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+
+          <!-- Card 4 -->
+          <article class="gallery-card" data-target="star_formation_hub" data-epoch="0" data-band="4" tabindex="0" role="button" aria-label="Load Star Formation Hub in viewer">
+            <div class="card-media">
+              <img src="assets/images/nebula-red-orange.jpg" alt="Star-forming Carina nebula showing ionized gas and warm dust in red-orange" loading="lazy">
+              <span class="card-tag">Band 4 &bull; 3.1 µm</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">Star Formation Hub (Ionized Gas)</h3>
+              <p class="card-desc">Infrared emission tracing hot circumstellar gas and active protostellar nurseries.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+
+          <!-- Card 5 -->
+          <article class="gallery-card" data-target="star_formation_hub" data-epoch="0" data-band="5" tabindex="0" role="button" aria-label="Load Thermal Dust Envelopes in viewer">
+            <div class="card-media">
+              <img src="assets/images/nebula-amber-dust.jpg" alt="Star formation region observed at longer thermal infrared wavelength" loading="lazy">
+              <span class="card-tag">Band 5 &bull; 4.1 µm</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">Thermal Dust Envelopes (Amber)</h3>
+              <p class="card-desc">Mid-infrared thermal continuum emission tracing cold interstellar dust boundaries.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+
+          <!-- Card 6 -->
+          <article class="gallery-card" data-target="molecular_filaments" data-epoch="0" data-band="6" tabindex="0" role="button" aria-label="Load Herschel Filamentary Web in viewer">
+            <div class="card-media">
+              <img src="assets/images/herschel-filaments.jpg" alt="Cold molecular cloud filaments where new stars condense" loading="lazy">
+              <span class="card-tag">Band 6 &bull; 4.8 µm</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">Herschel Filamentary Web</h3>
+              <p class="card-desc">Cold, supercritical filaments collapsing to trigger new star birth within warm diffuse gas.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+
+          <!-- Card 7 -->
+          <article class="gallery-card" data-target="galactic_bulge" data-epoch="0" data-band="2" tabindex="0" role="button" aria-label="Load Galactic Bulge Star Field in viewer">
+            <div class="card-media">
+              <img src="assets/images/milkyway-starfield.jpg" alt="Milky Way dense star field penetrating interstellar dust lanes" loading="lazy">
+              <span class="card-tag">Band 2 &bull; 1.4 µm</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">Galactic Bulge Star Field</h3>
+              <p class="card-desc">Dense near-infrared stellar survey penetrating obscuring dust lanes along the Galactic disk.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+
+          <!-- Card 8 -->
+          <article class="gallery-card" data-target="galactic_bulge" data-epoch="0" data-band="3" tabindex="0" role="button" aria-label="Load High-Resolution Galactic Disk in viewer">
+            <div class="card-media">
+              <img src="assets/images/milkyway-deepfield-hires.jpg" alt="High-resolution deep astronomical survey resolving dense stellar continuum" loading="lazy">
+              <span class="card-tag">High-Res Deep Field</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">Galactic Disk High-Resolution Survey</h3>
+              <p class="card-desc">Full-fidelity deep observation resolving stellar continuum along the inner Galactic disk.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+
+          <!-- Card 9 -->
+          <article class="gallery-card" data-target="milkyway_allsky" data-epoch="0" data-band="1" tabindex="0" role="button" aria-label="Load SPHEREx All-Sky Stars & Galaxies in viewer">
+            <div class="card-media">
+              <img src="assets/images/spherex-allsky-stars.webp" alt="SPHEREx 2025 all-sky survey of stars and galaxies" loading="lazy">
+              <span class="card-tag">All-Sky &bull; 1.00 µm</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">SPHEREx All-Sky: Stars &amp; Galaxies</h3>
+              <p class="card-desc">Full celestial sphere map from the 2025 survey showing hundreds of millions of stars and distant galaxies.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+
+          <!-- Card 10 -->
+          <article class="gallery-card" data-target="milkyway_allsky" data-epoch="0" data-band="6" tabindex="0" role="button" aria-label="Load SPHEREx All-Sky Dust & Gas in viewer">
+            <div class="card-media">
+              <img src="assets/images/spherex-allsky-dust.webp" alt="SPHEREx 2025 all-sky survey of cosmic dust and gas emission" loading="lazy">
+              <span class="card-tag">All-Sky &bull; 4.80 µm</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">SPHEREx All-Sky: Dust &amp; Gas</h3>
+              <p class="card-desc">All-sky infrared survey revealing warm interstellar dust grains and molecular gas clouds.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+
+          <!-- Card 11 -->
+          <article class="gallery-card" data-target="ngc_1760" data-epoch="0" data-band="1" tabindex="0" role="button" aria-label="Load NGC 1760 Ionized Sulfur in viewer">
+            <div class="card-media">
+              <img src="assets/images/ngc1760-096um.webp" alt="NGC 1760 star-forming nebula observed at 0.96 µm tracing ionized sulfur" loading="lazy">
+              <span class="card-tag">Band 1 &bull; 0.96 µm</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">NGC 1760: Ionized Sulfur (0.96 µm)</h3>
+              <p class="card-desc">Early SPHEREx observation of the LMC nebula tracing ionized sulfur (S III) emission lines.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+
+          <!-- Card 12 -->
+          <article class="gallery-card" data-target="ngc_1760" data-epoch="0" data-band="2" tabindex="0" role="button" aria-label="Load NGC 1760 Stellar Continuum in viewer">
+            <div class="card-media">
+              <img src="assets/images/ngc1760-098um.webp" alt="NGC 1760 star-forming nursery observed at 0.98 µm resolving stellar continuum" loading="lazy">
+              <span class="card-tag">Band 2 &bull; 0.98 µm</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">NGC 1760: Stellar Continuum (0.98 µm)</h3>
+              <p class="card-desc">Near-infrared continuum revealing dense stellar populations within the star-forming nursery.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+
+          <!-- Card 13 -->
+          <article class="gallery-card" data-target="ngc_1760" data-epoch="0" data-band="3" tabindex="0" role="button" aria-label="Load NGC 1760 Organic Carbon Dust in viewer">
+            <div class="card-media">
+              <img src="assets/images/ngc1760-329um.webp" alt="NGC 1760 nebula observed at 3.29 µm tracing polycyclic aromatic hydrocarbons" loading="lazy">
+              <span class="card-tag">Band 3 &bull; 3.29 µm</span>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">NGC 1760: Carbon Dust &amp; PAHs (3.29 µm)</h3>
+              <p class="card-desc">Thermal emission from polycyclic aromatic hydrocarbons outlining turbulent dust boundaries.</p>
+              <span class="card-action">Load in Viewer &rarr;</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         SECTION 4: ABOUT THE DATA & PIPELINE (HONEST ATTRIBUTION & BALANCED)
+         ========================================================================= -->
+    <section class="content-section" id="about-data">
+      <div class="section-container">
+        <div class="section-header">
+          <span class="section-eyebrow">Scientific Foundation</span>
+          <h2 class="section-title">About the Data &amp; Pipeline</h2>
+        </div>
+
+        <div class="about-grid">
+          <div class="about-prose">
+            <p>
+              PROJECT SPECTRALx is engineered to interface with the <strong>NASA SPHEREx</strong> mission archive hosted at the <strong>NASA/IPAC Infrared Science Archive (IRSA)</strong> at Caltech.
+            </p>
+            <p>
+              Scientific surveys distribute multi-band images as large Flexible Image Transport System (<strong>FITS</strong>) files. Our backend pipeline uses <strong>Python</strong>, <strong>Astropy</strong>, and <strong>NumPy</strong> to parse WCS coordinate headers, subtract sky background, apply flux non-linear stretching, and tile outputs into responsive web images served via <code>GET /api/sky-view?ra=&amp;dec=</code>.
+            </p>
+          </div>
+
+          <div class="pipeline-card">
+            <h3 class="pipeline-title">Data Pipeline Architecture</h3>
+            <ol class="pipeline-steps">
+              <li>
+                <strong>Caltech IRSA Archive</strong>
+                <span>Raw SPHEREx Level-2 calibrated spectral image cubes and Level-3 all-sky coadds.</span>
+              </li>
+              <li>
+                <strong>Server-Side Astropy Pipeline</strong>
+                <span>Python/Astropy parses WCS headers, subtracts sky background, and exports optimized tiles.</span>
+              </li>
+              <li>
+                <strong>REST API (<code>/api/sky-view</code>)</strong>
+                <span>Delivers JSON containing target coordinates, observation dates, and tile URLs.</span>
+              </li>
+              <li>
+                <strong>SPECTRALx Front End</strong>
+                <span>Fluid time-domain navigation, Blink Comparator, and multi-band inspection.</span>
+              </li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         SECTION 5: TEAM (REAL NAMES & ROLES)
+         ========================================================================= -->
+    <section class="content-section" id="team">
+      <div class="section-container">
+        <div class="section-header">
+          <span class="section-eyebrow">NASA International Space Apps Challenge 2026</span>
+          <h2 class="section-title">PROJECT SPECTRALx Team</h2>
+          <p class="section-desc">The researchers, designers, and engineers behind the SPHEREx Sky Explorer.</p>
+        </div>
+
+        <div class="team-grid">
+          <!-- Member 1 -->
+          <div class="team-card">
+            <div class="team-role">Team Lead &amp; Backend Engineer</div>
+            <h3 class="team-name">Ghazanfar Kalhoro (Kabi)</h3>
+            <p class="team-desc">
+              Project leadership, SPHEREx survey methodology, Python/Astropy FITS processing pipeline, and Caltech IRSA archive integration.
+            </p>
+          </div>
+
+          <!-- Member 2 -->
+          <div class="team-card">
+            <div class="team-role">Frontend Engineer &amp; Astrometry</div>
+            <h3 class="team-name">Vagif Novruzov</h3>
+            <p class="team-desc">
+              Full-bleed sky viewer architecture, time-slider 1:1 pointer tracking, Blink Comparator engine, and API-first fallback client.
+            </p>
+          </div>
+
+          <!-- Member 3 -->
+          <div class="team-card">
+            <div class="team-role">UI/UX &amp; Design Systems Lead</div>
+            <h3 class="team-name">Loudjeine Boussalem (Sylveon)</h3>
+            <p class="team-desc">
+              Apple Liquid Glass visual tokens, accessibility compliance, responsive layout grids, and interactive ergonomics.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Clean Minimal Footer -->
+  <footer class="site-footer">
+    <div class="footer-container">
+      <p>&copy; 2026 PROJECT SPECTRALx &bull; NASA Space Apps Challenge 2026</p>
+      <p>Data courtesy of NASA / JPL-Caltech / IRSA. Built with pure web standards.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
