@@ -29,6 +29,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install Python dependencies
+        run: pip install pillow
+
       - name: Run Self-Check Quality Script
         run: |
           chmod +x scripts/self-check.sh
