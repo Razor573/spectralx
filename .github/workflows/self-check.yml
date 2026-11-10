@@ -30,7 +30,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install Python dependencies
-        run: pip install pillow
+        run: pip install pillow numpy
 
       - name: Run Self-Check Quality Script
         run: |
