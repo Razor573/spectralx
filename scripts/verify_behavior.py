@@ -308,7 +308,7 @@ def run_behavioral_checks():
     # --- Check 13: Zero Em-Dashes Across All Project Files ---
     em_dash_files = []
     for root, dirs, files in os.walk(PROJECT_ROOT):
-        if any(p in root for p in [".cache", ".git", "upload", ".gemini", "node_modules"]):
+        if any(p in root.split(os.sep) for p in [".cache", ".git", "upload", ".gemini", "node_modules", ".local", "cache"]):
             continue
         for file in files:
             if file.endswith((".html", ".js", ".css", ".md", ".py", ".sh", ".json")):
