@@ -237,6 +237,7 @@ const appState = {
   isLoadingBlink: false,
   blinkTimerId: null,
   blinkFlip: false,
+  isLiveApi: false,
   isLiveApiConnected: false,
   preloadedImages: new Map(), // url -> HTMLImageElement
   loadGeneration: 0           // Stale-load race protection token
@@ -394,39 +395,43 @@ function preloadTargetImages(target, onProgress = null) {
   );
 }
 
-/**
- * Renders the stage image with generation-based stale-load protection.
- */
 function displayImageTile(targetUrl, hiresUrl = null) {
   if (!ui.skyDisplay) return;
 
   hideViewerError();
 
   const thisGen = ++appState.loadGeneration;
+  const previousSrc = appState.currentGoodUrl || ui.skyDisplay.getAttribute("src") || "";
 
-  const applySrc = () => {
-    if (hiresUrl) {
-      ui.skyDisplay.srcset = `${hiresUrl} 2048w, ${targetUrl} 1024w`;
+  const applySrc = (url, hires) => {
+    if (hires) {
+      ui.skyDisplay.srcset = `${hires} 2048w, ${url} 1024w`;
       ui.skyDisplay.sizes = "100vw";
     } else {
       ui.skyDisplay.removeAttribute("srcset");
       ui.skyDisplay.removeAttribute("sizes");
     }
-    ui.skyDisplay.src = targetUrl;
+    ui.skyDisplay.src = url;
     ui.skyDisplay.style.opacity = "1";
   };
 
-  applySrc();
+  // Apply immediately so viewer responds instantaneously
+  applySrc(targetUrl, hiresUrl);
 
-  // Background caching & error tracking
+  // Background error detection: if targetUrl fails (404), revert to previous held image
   const loader = new Image();
   loader.src = targetUrl;
   loader.onload = () => {
     appState.preloadedImages.set(targetUrl, loader);
+    appState.currentGoodUrl = targetUrl;
   };
   loader.onerror = () => {
     if (thisGen === appState.loadGeneration) {
       console.error(`[SPECTRALx] Image tile failed to load: ${targetUrl}`);
+      // Revert to holding the previous valid image instead of staying on the broken URL!
+      if (previousSrc && !previousSrc.includes("non-existent-tile-404")) {
+        applySrc(previousSrc, null);
+      }
       showViewerError(targetUrl);
     }
   };
@@ -456,7 +461,13 @@ function hideViewerError() {
 // =========================================================================
 // 7. TARGET LOADING & UI SYNCHRONIZATION
 // =========================================================================
+// Monotonic request sequence: a slow API response must never overwrite a
+// newer target selection (IRSA TAP takes ~10-14s on first query, so rapid
+// target switches otherwise resolve out of order and clobber the view).
+let loadTargetSeq = 0;
+
 async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
+  const mySeq = ++loadTargetSeq;
   const localTarget = CELESTIAL_TARGETS[targetKey] || CELESTIAL_TARGETS.planet_x_field;
   const baseUrl = API_BASE_URL !== undefined ? API_BASE_URL : "";
   const queryHost = baseUrl || (typeof window !== "undefined" && window.location && window.location.origin && window.location.origin.startsWith("http") ? window.location.origin : "");
@@ -468,8 +479,10 @@ async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
       const url = `${queryHost}/api/sky-view?ra=${encodeURIComponent(queryRa)}&dec=${encodeURIComponent(queryDec)}`;
 
       const response = await fetch(url).catch(() => null);
+      if (mySeq !== loadTargetSeq) return; // superseded by a newer selection
       if (response && response.ok) {
         const json = await response.json().catch(() => null);
+        if (mySeq !== loadTargetSeq) return; // superseded while parsing
         if (json && Array.isArray(json.epochs) && json.epochs.length > 0) {
           const mergedEpochs = json.epochs.map((ep, idx) => {
             const localEp = (localTarget && localTarget.epochs && localTarget.epochs[idx]) || {};
@@ -480,6 +493,17 @@ async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
               image_url_hires: ep.image_url_hires || localEp.image_url_hires
             };
           });
+
+          const mergedBands = {};
+          const sourceBands = json.bands || (localTarget?.bands || {});
+          for (const [bKey, bVal] of Object.entries(sourceBands)) {
+            const localBand = (localTarget && localTarget.bands && localTarget.bands[bKey]) || {};
+            mergedBands[bKey] = {
+              ...localBand,
+              ...bVal,
+              image_url_hires: bVal.image_url_hires || localBand.image_url_hires || null
+            };
+          }
 
           setLiveStatus(true);
           appState.activeTargetKey = targetKey;
@@ -494,7 +518,7 @@ async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
             default_band: json.default_band || (localTarget?.default_band || 1),
             unavailable_notice: json.unavailable_notice || (localTarget?.unavailable_notice || ""),
             epochs: mergedEpochs,
-            bands: json.bands || (localTarget?.bands || {})
+            bands: mergedBands
           };
           syncViewportUI(forcedBand);
           preloadTargetImages(appState.activeTarget);
@@ -506,6 +530,7 @@ async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
     }
   }
 
+  if (mySeq !== loadTargetSeq) return; // superseded by a newer selection
   setLiveStatus(false);
   const target = CELESTIAL_TARGETS[targetKey] || CELESTIAL_TARGETS.planet_x_field;
   appState.activeTargetKey = target.id;
@@ -525,6 +550,7 @@ async function loadTarget(targetKey, slewMeta = null, forcedBand = null) {
 }
 
 function setLiveStatus(isLive) {
+  appState.isLiveApi = isLive;
   appState.isLiveApiConnected = isLive;
 }
 
@@ -661,7 +687,7 @@ function renderStage() {
   if (target.bands && target.bands[appState.bandNumber]) {
     displayUrl = target.bands[appState.bandNumber].image_url;
     activeUm = target.bands[appState.bandNumber].um;
-    hiresUrl = target.bands[appState.bandNumber].image_url_hires || null;
+    hiresUrl = target.bands[appState.bandNumber].image_url_hires || currentEpoch.image_url_hires || null;
   }
 
   appState.bandUm = activeUm;
@@ -972,6 +998,7 @@ function bindUIEvents() {
   // 8. Error retry button
   if (ui.btnErrorRetry) {
     ui.btnErrorRetry.addEventListener("click", () => {
+      ++appState.loadGeneration;
       hideViewerError();
       loadTarget("planet_x_field");
     });

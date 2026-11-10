@@ -19,8 +19,10 @@ PROJECT_SPECTRALX/
 ├── styles.css                   # Space theme engine with root CSS variables
 ├── app.js                       # Client logic: Time-slider, Blink Comparator, API client
 ├── server.py                    # Lightweight Python backend (REST API & static server)
+├── requirements.txt             # Python dependencies (astropy, numpy, pillow)
 ├── backend/
 │   ├── server.py                # Backend entry point (symlinked to ../server.py)
+│   ├── requirements.txt         # Backend Python dependencies
 │   └── README.md                # Comprehensive backend and IRSA data documentation
 ├── assets/
 │   └── images/                  # Real astronomical survey imagery (IRSA / Caltech / SPHEREx / Herschel)
@@ -45,10 +47,13 @@ PROJECT_SPECTRALX/
 ├── scripts/
 │   ├── self-check.sh            # Automated project quality validator & auto-fixer
 │   ├── verify_behavior.py       # Pixel-level scientific & behavioral validation engine
-│   └── test-all.sh              # Single-command unified test suite
+│   ├── test-all.sh              # Single-command unified master test suite
+│   ├── test_v2_rebuild.js       # In-browser Playwright/Puppeteer automation suite
+│   └── test_step08_desktop.js   # Desktop viewports, pixel checks & 15 cards fidelity
 ├── .github/
 │   └── workflows/
 │       └── self-check.yml       # Automated CI workflow
+├── package.json                 # Node package configuration and npm test hook
 ├── SELF-CHECK-REPORT.md         # Generated health audit log
 ├── submission.md                # NASA Space Apps hackathon submission draft
 └── README.md                    # Combined project documentation (this file)
